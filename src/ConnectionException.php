@@ -1,5 +1,7 @@
 <?php
 
+namespace JSzczypk\WebSocket;
+
 class ConnectionException extends Exception
 {
 
