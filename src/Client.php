@@ -325,6 +325,7 @@ class Client
 
         if ($opcode === self::OPCODE_PING) {
             $this->send($payload, self::OPCODE_PONG);
+            return null;
         }
 
         // if this is not the last fragment, then we need to save the payload
