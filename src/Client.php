@@ -99,7 +99,7 @@ class Client
         );
 
         if ($this->socket === false) {
-            throw new Exception("Could not open socket to \"$host:$port\": $errstr ($errno).");
+            throw new ConnectionException("Could not open socket to \"$host:$port\": $errstr ($errno).");
         }
 
         stream_set_timeout($this->socket, $this->timeout);
@@ -146,23 +146,23 @@ class Client
         //print_r($this->handshakeResponse);
 
         if($this->handshakeResponse['response_code'] != '101') {
-            throw new Exception("Invalid HTTP response code");
+            throw new ConnectionException("Invalid HTTP response code");
         }
 
         if(strtolower($this->handshakeResponse['Upgrade'] ?? '') != 'websocket') {
-            throw new Exception("Missing are invalid Upgrade header in server response.");
+            throw new ConnectionException("Missing are invalid Upgrade header in server response.");
         }
 
         if(strtolower($this->handshakeResponse['Connection'] ?? '') != 'upgrade') {
-            throw new Exception("Missing are invalid Upgrade header in server response.");
+            throw new ConnectionException("Missing are invalid Upgrade header in server response.");
         }
 
         if(empty($this->handshakeResponse['Sec-WebSocket-Accept'])) {
-            throw new Exception("Connection to '{$this->uri}' failed: Server sent invalid upgrade response:\n{$response}");
+            throw new ConnectionException("Connection to '{$this->uri}' failed: Server sent invalid upgrade response:\n{$response}");
         }
 
         if ($this->handshakeResponse['Sec-WebSocket-Accept'] !== base64_encode(sha1($key.self::GUID, TRUE))) {
-            throw new \Exception('Server sent bad upgrade response.');
+            throw new ConnectionException('Server sent bad upgrade response.');
         }
 
         $this->isConnected = true;
@@ -300,12 +300,7 @@ class Client
         if($length > 0) {
             $payload = $this->read($length);
             if ($hasMask) {
-                $this->unmask($payload, $mask);
-                /*
-                for ($i = 0; $i < $length; $i++) {
-                    $payload[$i] = $payload[$i] ^ $mask[$i % 4];
-                }
-                 */
+                $payload = $this->unmask($payload, $mask);
             }
         } else {
             $payload = '';
@@ -364,11 +359,11 @@ class Client
         $written = fwrite($this->socket, $data);
 
         if ($written === false) {
-            throw new Exception("Error when sending data.");
+            throw new ConnectionException("Error when sending data.");
         }
 
         if ($written < strlen($data)) {
-            throw new Exception("Could only write $written out of " . strlen($data) . " bytes.");
+            throw new ConnectionException("Could only write $written out of " . strlen($data) . " bytes.");
         }
     }
 
@@ -379,11 +374,11 @@ class Client
             $buffer = fread($this->socket, $length - strlen($data));
             if ($buffer === false) {
                 $metadata = stream_get_meta_data($this->socket);
-                throw new Exception('Broken frame, read ' . strlen($data) . " of stated {$length} bytes. Stream state: ".json_encode($metadata));
+                throw new ConnectionException('Broken frame, read ' . strlen($data) . " of stated {$length} bytes. Stream state: ".json_encode($metadata));
             }
             if ($buffer === '') {
                 $metadata = stream_get_meta_data($this->socket);
-                throw new Exception('Empty read; connection dead? Stream state: '.json_encode($metadata));
+                throw new ConnectionException('Empty read; connection dead? Stream state: '.json_encode($metadata));
             }
             $data .= $buffer;
         }
