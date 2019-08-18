@@ -208,8 +208,13 @@ class Client
         return $this->handshakeResponse[$key] ?? null;
     }
 
-    public function send(string $payload, int $opcode = self::OPCODE_TEXT, bool $masked = true): void
+    public function send(string $payload, int $opcode = self::OPCODE_TEXT): void
     {
+
+        if($opcode > 0x0F) {
+            throw new Exception("Opcode out of range");
+        }
+
         if (!$this->isConnected) $this->connect();
 
         // control frames are always sent without fragmentation
@@ -217,49 +222,33 @@ class Client
         $fragments = ($opcode >= 0x8) ? [ $payload ] : str_split($payload, $this->fragmentSize);
 
         for ($i = 0; $i < count($fragments); $i++) {
-            $this->sendFragment(
-                $i == (count($fragments)-1),
-                $fragments[$i],
-                $i == 0 ? $opcode : self::OPCODE_CONTINUATION
-            );
+
+            $first = ($i == (count($fragments)-1)) ? 0x80 : 0;
+            $first |= ($i == 0) ? $opcode : self::OPCODE_CONTINUATION;
+
+            $second = 0x80; // always mask
+            
+            $length = strlen($fragments[$i]);
+
+            if ($length <= 125) {
+                $second |= $length;
+                $msg = pack('CC', $first, $second);
+            } elseif ($length <= 65535) {
+                $second |= 126;
+                $msg = pack('CCn', $first, $second, $length);
+            } else {
+                $second |= 127;
+                $msg = pack('CCJ', $first, $second, $length);
+            }
+            
+            $mask = random_bytes(4);
+            $msg .= $mask;
+            $msg .= $this->mask($fragments[$i], $mask);
+
+            $this->write($msg);
+
         }
 
-    }
-
-    protected function sendFragment(bool $final, string $payload, int $opcode): void
-    {
-
-        if($opcode > 0x0F) {
-            throw new Exception("Opcode out of range");
-        }
-
-        $first = $final ? 0x80 : 0;
-        $first |= $opcode;
-
-        $second = 0x80; // always mask
-        $mask = random_bytes(4);
-
-        $length = strlen($payload);
-
-        if ($length <= 125) {
-            $second |= $length;
-            $msg = pack('CC', $first, $second);
-        } elseif ($length <= 65535) {
-            $second |= 126;
-            $msg = pack('CCn', $first, $second, $length);
-        } else {
-            $second |= 127;
-            $msg = pack('CCJ', $first, $second, $length);
-        }
-
-        // mask
-        $msg .= $mask;
-
-        for ($i = 0; $i < $length; $i++) {
-            $msg .= $payload[$i] ^ $mask[$i % 4];
-        }
-
-        $this->write($msg);
     }
 
     public function receive(): string
@@ -300,7 +289,7 @@ class Client
         if($length > 0) {
             $payload = $this->read($length);
             if ($hasMask) {
-                $payload = $this->unmask($payload, $mask);
+                $payload = $this->mask($payload, $mask);
             }
         } else {
             $payload = '';
@@ -386,7 +375,8 @@ class Client
         return $data;
     }
 
-    protected function unmask(string $payload, string $mask): string {
+    protected function mask(string $payload, string $mask): string 
+    {
         for ($i = 0; $i < strlen($payload); $i++) {
             $payload[$i] = $payload[$i] ^ $mask[$i % 4];
         }
