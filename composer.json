@@ -1,6 +1,6 @@
 {
   "name": "jszczypk/websocket",
-  "description": "Websocket client library",
+  "description": "WebSocket client library",
   "type": "library",
   "keywords": [ "websocket" ],
   "license": "LGPL-3.0-or-later",
@@ -19,7 +19,7 @@
   },
   "autoload": {
     "psr-4": {
-      "JSzczypk\\Websocket\\": "src/"
+      "JSzczypk\\WebSocket\\": "src/"
     }
   },
   "archive": {
