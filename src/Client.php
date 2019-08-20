@@ -45,10 +45,9 @@ class Client
 
     protected $handshakeResponse = [];
 
-    protected 
-        $isConnected = false,
-        $isClosing = false,
-        $hugePayload;
+    protected $isConnected = false;
+    protected $isClosing = false;
+    protected $hugePayload;
 
     /**
      * @param array{timeout:int} $options
@@ -63,13 +62,18 @@ class Client
 
         $this->uri = $uri;
 
-        if (array_key_exists('timeout', $options)) $this->timeout = $options['timeout'];
-        if (array_key_exists('fragmentSize', $options)) $this->fragmentSize = $options['fragmentSize'];
-        if (array_key_exists('headers', $options)) $this->headers = $options['headers'];
-
+        if (array_key_exists('timeout', $options)) {
+            $this->timeout = $options['timeout'];
+        }
+        if (array_key_exists('fragmentSize', $options)) {
+            $this->fragmentSize = $options['fragmentSize'];
+        }
+        if (array_key_exists('headers', $options)) {
+            $this->headers = $options['headers'];
+        }
     }
 
-    public function __destruct() 
+    public function __destruct()
     {
         if ($this->isConnected) {
             $this->close();
@@ -126,7 +130,7 @@ class Client
         }
 
         $handshake = [ "GET {$pathWithQuery} HTTP/1.1" ];
-        foreach($headers as $k => $v) {
+        foreach ($headers as $k => $v) {
             $handshake[] = "{$k}: {$v}";
         }
         $handshake[] = '';
@@ -145,39 +149,39 @@ class Client
 
         //print_r($this->handshakeResponse);
 
-        if($this->handshakeResponse['response_code'] != '101') {
+        if ($this->handshakeResponse['response_code'] != '101') {
             throw new ConnectionException("Invalid HTTP response code");
         }
 
-        if(strtolower($this->handshakeResponse['Upgrade'] ?? '') != 'websocket') {
+        if (strtolower($this->handshakeResponse['Upgrade'] ?? '') != 'websocket') {
             throw new ConnectionException("Missing are invalid Upgrade header in server response.");
         }
 
-        if(strtolower($this->handshakeResponse['Connection'] ?? '') != 'upgrade') {
+        if (strtolower($this->handshakeResponse['Connection'] ?? '') != 'upgrade') {
             throw new ConnectionException("Missing are invalid Upgrade header in server response.");
         }
 
-        if(empty($this->handshakeResponse['Sec-WebSocket-Accept'])) {
+        if (empty($this->handshakeResponse['Sec-WebSocket-Accept'])) {
             throw new ConnectionException("Connection to '{$this->uri}' failed: Server sent invalid upgrade response:\n{$response}");
         }
 
-        if ($this->handshakeResponse['Sec-WebSocket-Accept'] !== base64_encode(sha1($key.self::GUID, TRUE))) {
+        if ($this->handshakeResponse['Sec-WebSocket-Accept'] !== base64_encode(sha1($key.self::GUID, true))) {
             throw new ConnectionException('Server sent bad upgrade response.');
         }
 
         $this->isConnected = true;
     }
 
-    protected function parseHeaders( array $headers ): array
+    protected function parseHeaders(array $headers): array
     {
         $result = [];
-        foreach( $headers as $k=>$v ) {
-            $t = explode( ':', $v, 2 );
-            if( isset( $t[1] ) ) {
-                $result[ trim($t[0]) ] = trim( $t[1] );
+        foreach ($headers as $k => $v) {
+            $t = explode(':', $v, 2);
+            if (isset($t[1])) {
+                $result[ trim($t[0]) ] = trim($t[1]);
             } else {
                 $result[] = $v;
-                if( preg_match( "#HTTP/[0-9\.]+\s+([0-9]+)#",$v, $out ) ) {
+                if (preg_match("#HTTP/[0-9\.]+\s+([0-9]+)#", $v, $out)) {
                     $result['response_code'] = intval($out[1]);
                 }
             }
@@ -203,7 +207,7 @@ class Client
         return $this->fragmentSize;
     }
 
-    public function getHandshakeParam(string $key): ?string 
+    public function getHandshakeParam(string $key): ?string
     {
         return $this->handshakeResponse[$key] ?? null;
     }
@@ -211,18 +215,19 @@ class Client
     public function send(string $payload, int $opcode = self::OPCODE_TEXT): void
     {
 
-        if($opcode > 0x0F) {
+        if ($opcode > 0x0F) {
             throw new Exception("Opcode out of range");
         }
 
-        if (!$this->isConnected) $this->connect();
+        if (!$this->isConnected) {
+            $this->connect();
+        }
 
         // control frames are always sent without fragmentation
         // it's very unlikely to have fragmentSize set to such small value, but anyway
         $fragments = ($opcode >= 0x8) ? [ $payload ] : str_split($payload, $this->fragmentSize);
 
         for ($i = 0; $i < count($fragments); $i++) {
-
             $first = ($i == (count($fragments)-1)) ? 0x80 : 0;
             $first |= ($i == 0) ? $opcode : self::OPCODE_CONTINUATION;
 
@@ -246,19 +251,21 @@ class Client
             $msg .= $this->mask($fragments[$i], $mask);
 
             $this->write($msg);
-
         }
-
     }
 
     public function receive(): string
     {
-        if (!$this->isConnected) $this->connect();
+        if (!$this->isConnected) {
+            $this->connect();
+        }
 
         $this->hugePayload = '';
 
         $response = null;
-        while (is_null($response)) $response = $this->receiveFragment();
+        while (is_null($response)) {
+            $response = $this->receiveFragment();
+        }
 
         // TODO PhanTypeMismatchReturnNullable
         return (string) $response;
@@ -276,17 +283,17 @@ class Client
         $hasMask = ($second & 0x80) == 0x80;
         $length = $second & 127;
 
-        if($length == 126) {
+        if ($length == 126) {
             $length = unpack('n', $this->read(2))[1];
         } elseif ($length == 127) {
             $length = unpack('J', $this->read(4))[1];
         }
 
-        if($hasMask) {
+        if ($hasMask) {
             $mask = $this->read(4);
         }
 
-        if($length > 0) {
+        if ($length > 0) {
             $payload = $this->read($length);
             if ($hasMask) {
                 $payload = $this->mask($payload, $mask);
@@ -305,7 +312,9 @@ class Client
                 $payload = substr($payload, 2);
             }
 
-            if ($this->isClosing) $this->isClosing = false; // A close response, all done.
+            if ($this->isClosing) {
+                $this->isClosing = false; // A close response, all done.
+            }
 
             // And close the socket.
             fclose($this->socket);
@@ -375,7 +384,7 @@ class Client
         return $data;
     }
 
-    protected function mask(string $payload, string $mask): string 
+    protected function mask(string $payload, string $mask): string
     {
         for ($i = 0; $i < strlen($payload); $i++) {
             $payload[$i] = $payload[$i] ^ $mask[$i % 4];
@@ -384,7 +393,7 @@ class Client
     }
 
     // https://stackoverflow.com/questions/1057572/how-can-i-get-a-hex-dump-of-a-string-in-php
-    function hex_dump($data, $newline="\n")
+    protected function hexDump($data, $newline = "\n")
     {
         static $from = '';
         static $to = '';
@@ -393,10 +402,8 @@ class Client
 
         static $pad = '.'; # padding for non-visible characters
 
-        if ($from==='')
-        {
-            for ($i=0; $i<=0xFF; $i++)
-            {
+        if ($from==='') {
+            for ($i=0; $i<=0xFF; $i++) {
                 $from .= chr($i);
                 $to .= ($i >= 0x20 && $i <= 0x7E) ? chr($i) : $pad;
             }
@@ -406,14 +413,11 @@ class Client
         $chars = str_split(strtr($data, $from, $to), $width);
 
         $offset = 0;
-        foreach ($hex as $i => $line)
-        {
-            echo sprintf('%6X',$offset).' : '.implode(' ', str_split($line,2)) . ' [' . $chars[$i] . ']' . $newline;
+        foreach ($hex as $i => $line) {
+            echo sprintf('%6X', $offset).' : '.implode(' ', str_split($line, 2)) . ' [' . $chars[$i] . ']' . $newline;
             $offset += $width;
         }
     }
-
 }
 
 // vim: tabstop=4 shiftwidth=4 expandtab
-
