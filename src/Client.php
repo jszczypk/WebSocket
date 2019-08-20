@@ -286,7 +286,7 @@ class Client
         if ($length == 126) {
             $length = unpack('n', $this->read(2))[1];
         } elseif ($length == 127) {
-            $length = unpack('J', $this->read(4))[1];
+            $length = unpack('J', $this->read(8))[1];
         }
 
         if ($hasMask) {
