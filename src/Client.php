@@ -75,10 +75,14 @@ class Client
 
     public function __destruct()
     {
-        if ($this->isConnected) {
-            $this->close();
-        } elseif ($this->socket) {
-            fclose($this->socket);
+        try {
+            if ($this->isConnected) {
+                $this->close();
+            } elseif ($this->socket) {
+                fclose($this->socket);
+            }
+        } catch (\Throwable $e) {
+            // No-op
         }
     }
 
@@ -232,7 +236,7 @@ class Client
             $first |= ($i == 0) ? $opcode : self::OPCODE_CONTINUATION;
 
             $second = 0x80; // always mask
-            
+
             $length = strlen($fragments[$i]);
 
             if ($length <= 125) {
@@ -245,7 +249,7 @@ class Client
                 $second |= 127;
                 $msg = pack('CCJ', $first, $second, $length);
             }
-            
+
             $mask = random_bytes(4);
             $msg .= $mask;
             $msg .= $this->mask($fragments[$i], $mask);
@@ -355,7 +359,14 @@ class Client
 
     protected function write(string $data): void
     {
-        $written = fwrite($this->socket, $data);
+        try {
+            set_error_handler(function($errno, $errstr) {
+                throw new ConnectionException("Error when sending data: $errstr");
+            });
+            $written = fwrite($this->socket, $data);
+        } finally {
+            restore_error_handler();
+        }
 
         if ($written === false) {
             throw new ConnectionException("Error when sending data.");
@@ -370,7 +381,14 @@ class Client
     {
         $data = '';
         while (strlen($data) < $length) {
-            $buffer = fread($this->socket, $length - strlen($data));
+            try {
+                set_error_handler(function($errno, $errstr) {
+                    throw new ConnectionException("Error when receiving data: $errstr");
+                });
+                $buffer = fread($this->socket, $length - strlen($data));
+            } finally {
+                restore_error_handler();
+            }
             if ($buffer === false) {
                 $metadata = stream_get_meta_data($this->socket);
                 throw new ConnectionException('Broken frame, read ' . strlen($data) . " of stated {$length} bytes. Stream state: ".json_encode($metadata));
