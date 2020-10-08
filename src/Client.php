@@ -1,6 +1,6 @@
 <?php
 
-namespace JSzczypk\WebSocket;
+namespace BKWTools\WebSocket;
 
 class Client
 {
@@ -116,7 +116,7 @@ class Client
 
         $headers = [
             'Host' => "$host:$port",
-            'User-Agent' => 'jszczypk/websocket',
+            'User-Agent' => 'bkwtools/websocket',
             'Connection' => 'Upgrade',
             'Upgrade' => 'WebSocket',
             'Sec-WebSocket-Key' => $key,

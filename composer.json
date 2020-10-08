@@ -1,5 +1,5 @@
 {
-  "name": "jszczypk/websocket",
+  "name": "bkwtools/websocket",
   "description": "WebSocket client library",
   "type": "library",
   "keywords": [ "websocket" ],
@@ -8,6 +8,11 @@
     {
       "name": "Janusz Szczypka",
       "email": "janusz@smartb2b.eu",
+      "role": "Developer"
+    },
+    {
+      "name": "Jonathan Turkanis",
+      "email": "j@coderage.com",
       "role": "Developer"
     }
   ],
@@ -20,7 +25,7 @@
   },
   "autoload": {
     "psr-4": {
-      "JSzczypk\\WebSocket\\": "src/"
+      "BKWTools\\WebSocket\\": "src/"
     }
   },
   "archive": {

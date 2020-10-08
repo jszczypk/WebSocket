@@ -1,6 +1,6 @@
 <?php
 
-namespace JSzczypk\WebSocket;
+namespace BKWTools\WebSocket;
 
 class Exception extends \Exception
 {
