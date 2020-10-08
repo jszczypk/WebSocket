@@ -1,5 +1,5 @@
 {
-  "name": "bkwtools/websocket",
+  "name": "bkwatch/websocket",
   "description": "WebSocket client library",
   "type": "library",
   "keywords": [ "websocket" ],
@@ -42,7 +42,7 @@
 	"vendor/bin/phpcs --standard=PSR2 --warning-severity=0 src"
       ],
       "fix": [
-	"vendor/bin/phpcbf --standard=PSR2 src"
+	    "vendor/bin/phpcbf --standard=PSR2 src"
       ]
   }
 }
